@@ -94,7 +94,10 @@
 
 .usl-panel.usl-collapsed {
   width: fit-content;
-  max-width: 210px;
+  /* No max-width: the compact header must fit its own controls. With 210px
+     and overflow hidden, the Open button sat past the right edge and the
+     panel could not be expanded (reported on Navan, 2026-10-07). */
+  max-width: none;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -105,18 +108,26 @@
   cursor: default;
 }
 
-.usl-collapsed .usl-rt,
-.usl-collapsed .usl-est,
-.usl-collapsed .usl-refresh,
-.usl-collapsed .usl-move-left,
-.usl-collapsed .usl-move-right,
-.usl-collapsed .usl-minimize {
+/* Specificity 0,3,0 on purpose: the shared button rule further down
+   (.usl-panel .usl-minimize, .usl-panel .usl-move-left, ...) is 0,2,0 and
+   later in the file, so a plain .usl-collapsed rule lost to it and the
+   collapsed header kept Minimize and both arrows while Open was clipped. */
+.usl-panel.usl-collapsed .usl-rt,
+.usl-panel.usl-collapsed .usl-est,
+.usl-panel.usl-collapsed .usl-refresh,
+.usl-panel.usl-collapsed .usl-move-left,
+.usl-panel.usl-collapsed .usl-move-right,
+.usl-panel.usl-collapsed .usl-minimize {
   display: none;
 }
 
-.usl-collapsed .usl-compact-title,
-.usl-collapsed .usl-open {
+.usl-panel.usl-collapsed .usl-compact-title,
+.usl-panel.usl-collapsed .usl-open {
   display: inline-flex;
+}
+
+.usl-panel.usl-collapsed .usl-compact-title {
+  white-space: nowrap;
 }
 
 .usl-x {
