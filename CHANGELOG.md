@@ -12,6 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - Popup auto-watch. When the booking page you already have open has a confirmed, tail-assigned departure (the tracker's next-~72h feed), the watch now opens by itself for the flight on that page's date and keeps its Starlink status current through the existing three-hourly tail check. Other tail-assigned departures on the same route get a one-tap Watch. Typing a flight number and date still works, but has moved behind an “Add a flight manually” disclosure — it is the fallback, not the path. The route is read from the tab, never entered: this does not reintroduce the removed FROM/TO/Go search, which the same gate still asserts is gone. Unpublished; live Store remains 3.0.2.
+- Regression coverage now requires every decision-strip state to keep role=status and a non-empty accessible name on Alaska as on United and Navan. The winner name still starts "Best WiFi choice" and includes historical Starlink odds; the United sorting clause stays on Navan only. Unpublished; live Store remains 3.0.2.
 
 ### Removed
 
