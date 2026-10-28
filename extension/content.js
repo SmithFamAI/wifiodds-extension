@@ -936,7 +936,11 @@
     // Tier 1: the airline's static Streaming score. This is NOT a
     // per-flight next-gen probability and must never look like one, so it is
     // labelled and stays on the neutral outline treatment.
-    const fleet = a.fleet ? a.equipped + " of " + a.fleet + " aircraft" : "fleetwide";
+    // equipped is null when the count is unpublished (SAS, Air France) even
+    // though fleet is set. Never stringify that null, and never invent 0.
+    const fleet = a.equipped != null && a.fleet
+      ? a.equipped + " of " + a.fleet + " aircraft"
+      : (a.fleet ? "an unpublished count" : "fleetwide");
     const freeTxt = GF_FREE_TEXT[String(entry.free || "unknown").toLowerCase()] || "";
     return {
       sig: "cs|" + key + "|" + a.score + opSig,
@@ -1085,6 +1089,39 @@
       `<button type="button" class="usl-open" aria-expanded="false">Open</button></span></header>`;
   }
 
+  /* nextGenScore() is always a number, 0 when the count is unpublished.
+   * nextGenPublished === false is the same unknown as a missing score — the
+   * row fence in nextGenStateFor. Unpublished sorts below a measured zero.
+   * A published sub-1% share still reads "<1%", never a bare 0%. */
+  function gfNextGenRank(a) {
+    if (!a || a.nextGenPublished === false || typeof a.nextGenScore !== "number") return -1;
+    return a.nextGenScore;
+  }
+  function gfNextGenBadge(a) {
+    const ng = !a || a.nextGenPublished === false || typeof a.nextGenScore !== "number"
+      ? null
+      : Math.round(a.nextGenScore);
+    // A real but tiny published share must not print a bare "0%" (Southwest is
+    // 1 of 803). Test the UNROUNDED share: nextGenScore is already rounded, so
+    // a measured fraction that lands on 0 is still a share, not "none".
+    // Unpublished takes the null branch above and never reaches this.
+    const share = a && typeof a.nextGenShare === "number" ? a.nextGenShare : null;
+    const txt = ng === null ? "n/a" : (share > 0 && ng === 0 ? "<1%" : ng + "%");
+    return { ng: ng, txt: txt };
+  }
+  /* "N/M" only when equipped is a published number. 0 is a real count;
+   * null is unpublished and must not print. */
+  function gfEquippedCount(a) {
+    if (!a || a.equipped == null || !a.fleet) return "";
+    return a.equipped + "/" + a.fleet;
+  }
+  function gfStreamMeta(a) {
+    const count = gfEquippedCount(a);
+    if (count) return a.systemLabel + " " + count;
+    if (a && a.fleet && a.equipped == null) return a.systemLabel + " unpublished";
+    return a.systemLabel || "";
+  }
+
   /* GF panel: a per-airline summary of what is actually in these results,
    * ranked by Streaming score. Deliberately NOT the united.com route flight list —
    * on GF there is no single route/airline, and no sort button, because GF owns
@@ -1123,26 +1160,22 @@
     // results by NEXT-GEN ODDS (chance of a Starlink / Amazon Leo aircraft,
     // from the same published segment ledger); section 2 is the Streaming score
     // (today's system quality, the floor). A missing next-gen
-    // number renders n/a — unknown is never zero.
+    // number renders n/a — unknown is never zero. Unpublished counts are
+    // missing evidence (nextGenPublished === false), not the number 0, and
+    // sort below a measured zero.
     const byNextGen = ranked.slice().sort((a, b) => {
-      const av = typeof a.nextGenScore === "number" ? a.nextGenScore : -1;
-      const bv = typeof b.nextGenScore === "number" ? b.nextGenScore : -1;
-      return (bv - av) || a.name.localeCompare(b.name);
+      return (gfNextGenRank(b) - gfNextGenRank(a)) || a.name.localeCompare(b.name);
     });
     p.innerHTML =
       gfPanelHeader() +
       `<div class="usl-body">` +
       `<p class="usl-sect">Next-gen odds · Starlink and Amazon Leo</p>` +
       byNextGen.map((a) => {
-        const ng = typeof a.nextGenScore === "number" ? Math.round(a.nextGenScore) : null;
-        // A real but tiny share must not print a bare "0%": Southwest has 1
-        // next-gen aircraft in 803, which reads as "none in the fleet", a
-        // different and false fact. Test the UNROUNDED share, because
-        // nextGenScore is already rounded by the model and is itself 0 here —
-        // testing it would make this branch permanently dead, which is exactly
-        // what shipped in the first attempt at this fix.
-        const share = typeof a.nextGenShare === "number" ? a.nextGenShare : null;
-        const txt = ng === null ? "n/a" : (share > 0 && ng === 0 ? "<1%" : ng + "%");
+        // Do not key this off typeof nextGenScore === "number" alone.
+        // scoreAirline always returns a number, 0 when unpublished.
+        const badge = gfNextGenBadge(a);
+        const ng = badge.ng;
+        const txt = badge.txt;
         return `<div class="usl-row" title="${esc(a.note || "")}">` +
           `<span>${esc(a.name)}<span class="usl-time"> · ${esc(a.nextGenLabel || "no next-gen fleet announced")}</span></span>` +
           `<span class="usl-badge ${ng === null ? "usl-na" : cls(ng)}" data-evidence-fleet="${esc(a.key)}">${txt}</span></div>`;
@@ -1150,7 +1183,7 @@
       `<p class="usl-sect usl-sect--stream">Streaming score · out of 100</p>` +
       ranked.map((a) =>
         `<div class="usl-row usl-stream" title="${esc(a.note || "")}">` +
-        `<span>${esc(a.name)}<span class="usl-time"> · ${esc(a.systemLabel)}${a.fleet ? " " + a.equipped + "/" + a.fleet : ""}</span></span>` +
+        `<span>${esc(a.name)}<span class="usl-time"> · ${esc(gfStreamMeta(a))}</span></span>` +
         `<span class="usl-badge usl-cs ${cls(a.score)}" data-evidence-connect="${esc(a.key)}">${a.score}</span></div>`).join("") +
       `<div style="margin-top:8px;font-size:11px;opacity:.75;line-height:1.45">` +
       `Next-gen odds = chance of a Starlink aircraft today (Amazon Leo from 2027, none flying yet). Streaming score = a 0–100 rating of the airline's WiFi across its whole fleet today. ` +
