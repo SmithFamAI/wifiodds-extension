@@ -403,8 +403,12 @@ var csMethodEl = document.getElementById("usl-cs-method");
 var csRendered = false;
 
 function csFleetText(a) {
-  var fleet = a.fleet ? a.equipped + "/" + a.fleet : "fleetwide";
-  return a.systemLabel + " " + fleet;
+  // equipped is null when the count is unpublished but fleet is still set
+  // (SAS, Air France). 0 is a published count and may print. Never stringify
+  // null and never invent 0.
+  if (a.equipped != null && a.fleet) return a.systemLabel + " " + a.equipped + "/" + a.fleet;
+  if (a.fleet) return a.systemLabel + " unpublished";
+  return a.systemLabel + " fleetwide";
 }
 
 function renderConnectScores() {
